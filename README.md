@@ -1,3 +1,12 @@
+---
+title: IT Support Ticket Management
+emoji: 🎫
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 $header = "---
 title: IT Support Ticket Management
 emoji: 🎫
