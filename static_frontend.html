@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IT Support OpenEnv — Live Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: #1f2d45;
+    --accent: #3b82f6;
+    --accent2: #06b6d4;
+    --green: #10b981;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .badge {
+    background: var(--accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+  .server-status {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .dot.online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.offline { background: var(--red); }
+
+  /* Main layout */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr 300px;
+    grid-template-rows: auto 1fr;
+    gap: 0;
+    height: calc(100vh - 61px);
+  }
+
+  /* Panel base */
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-body { flex: 1; overflow-y: auto; padding: 16px; }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Task selector */
+  .task-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: var(--surface2);
+  }
+  .task-card:hover { border-color: var(--accent); }
+  .task-card.active { border-color: var(--accent); background: rgba(59,130,246,0.1); }
+  .task-card .task-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+  .task-card .task-meta { font-size: 11px; color: var(--muted); display: flex; gap: 10px; }
+  .pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .pill.easy   { background: rgba(16,185,129,0.15); color: var(--green); }
+  .pill.medium { background: rgba(245,158,11,0.15);  color: var(--yellow); }
+  .pill.hard   { background: rgba(239,68,68,0.15);   color: var(--red); }
+
+  /* Action panel */
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .action-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+  .action-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .action-btn.selected { border-color: var(--accent); background: rgba(59,130,246,0.15); color: var(--accent); }
+
+  .param-group { margin-bottom: 12px; }
+  .param-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; display: block; }
+  .param-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: var(--mono);
+    outline: none;
+    transition: border 0.15s;
+  }
+  .param-input:focus { border-color: var(--accent); }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 11px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-secondary {
+    width: 100%;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+  .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* Center — log + ticket */
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+
+  /* Ticket info bar */
+  .ticket-bar {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    background: var(--surface);
+    font-size: 12px;
+  }
+  .ticket-id { font-family: var(--mono); font-weight: 700; color: var(--accent2); }
+  .ticket-title { font-weight: 600; flex: 1; }
+  .severity-badge {
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .sev-medium   { background: rgba(245,158,11,0.2);  color: var(--yellow); }
+  .sev-high     { background: rgba(239,68,68,0.2);   color: var(--red); }
+  .sev-critical { background: rgba(239,68,68,0.35);  color: #ff6b6b; }
+  .sev-low      { background: rgba(16,185,129,0.2);  color: var(--green); }
+
+  /* Log area */
+  .log-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .log-area::-webkit-scrollbar { width: 4px; }
+  .log-area::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .log-entry { margin-bottom: 10px; padding: 10px 14px; border-radius: 6px; border-left: 3px solid; }
+  .log-entry.system  { border-color: var(--muted);   background: rgba(100,116,139,0.08); }
+  .log-entry.action  { border-color: var(--accent);  background: rgba(59,130,246,0.08); }
+  .log-entry.reward  { border-color: var(--green);   background: rgba(16,185,129,0.08); }
+  .log-entry.penalty { border-color: var(--red);     background: rgba(239,68,68,0.08); }
+  .log-entry.info    { border-color: var(--accent2); background: rgba(6,182,212,0.08); }
+
+  .log-step { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+  .log-msg  { color: var(--text); }
+  .log-reward { float: right; font-weight: 700; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--muted); }
+
+  .empty-log {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--muted);
+    font-family: var(--sans);
+    gap: 8px;
+  }
+  .empty-log .icon { font-size: 40px; }
+
+  /* Right — stats */
+  .stats-panel { border-right: none; }
+
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.blue  { color: var(--accent); }
+  .stat-value.yellow { color: var(--yellow); }
+
+  /* Progress bar */
+  .progress-wrap { margin-bottom: 10px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; }
+  .progress-label span:first-child { color: var(--muted); }
+  .progress-label span:last-child { font-family: var(--mono); font-weight: 600; }
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  /* Milestone tracker */
+  .milestone {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .milestone:last-child { border-bottom: none; }
+  .ms-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: all 0.3s;
+  }
+  .ms-dot.done { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .ms-dot.pending { background: var(--yellow); }
+  .ms-name { flex: 1; color: var(--muted); }
+  .ms-name.done { color: var(--text); }
+  .ms-reward { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* Score display */
+  .score-ring {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px 0;
+  }
+  .score-circle {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--mono);
+    border: 3px solid var(--border);
+    transition: all 0.5s;
+  }
+  .score-circle.good   { border-color: var(--green); color: var(--green); box-shadow: 0 0 20px rgba(16,185,129,0.3); }
+  .score-circle.medium { border-color: var(--yellow); color: var(--yellow); }
+  .score-circle.poor   { border-color: var(--red); color: var(--red); }
+  .score-circle.none   { color: var(--muted); }
+
+  /* Base URL input */
+  .url-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .url-bar input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-family: var(--mono);
+    outline: none;
+  }
+  .url-bar button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--accent2);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .url-bar button:hover { border-color: var(--accent2); }
+
+  /* Loading spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">IT Support <span>OpenEnv</span></div>
+  <div class="badge">v1.0</div>
+  <div class="server-status">
+    <div class="dot" id="serverDot"></div>
+    <span id="serverLabel">Connecting...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- LEFT: Task + Action panel -->
+  <div class="panel">
+    <div class="panel-header">🎯 Tasks</div>
+    <div class="panel-body">
+
+      <div class="url-bar">
+        <input type="text" id="baseUrl" value="" placeholder="Server URL">
+        <button onclick="checkServer()">Ping</button>
+      </div>
+
+      <div class="task-card active" onclick="selectTask('1')" id="task-card-1">
+        <div class="task-name">DNS Resolution Failure</div>
+        <div class="task-meta">
+          <span class="pill easy">EASY</span>
+          <span>8 steps max</span>
+          <span>INC-2024-0011</span>
+        </div>
+      </div>
+      <div class="task-card" onclick="selectTask('2')" id="task-card-2">
+        <div class="task-name">Email Service Outage</div>
+        <div class="task-meta">
+          <span class="pill medium">MEDIUM</span>
+          <span>12 steps max</span>
+          <span>INC-2024-0047</span>
+        </div>
+      </div>
+      <div class="task-card" onclick="selectTask('3')" id="task-card-3">
+        <div class="task-name">VPN Drops – Remote Workforce</div>
+        <div class="task-meta">
+          <span class="pill hard">HARD</span>
+          <span>18 steps max</span>
+          <span>INC-2024-0203</span>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="resetEnv()" style="margin-top:8px;" id="resetBtn">
+        ↺ Reset Environment
+      </button>
+    </div>
+
+    <div class="panel-header" style="margin-top:auto; border-top:1px solid var(--border);">⚡ Actions</div>
+    <div class="panel-body" style="flex:none; max-height:340px;">
+      <div class="action-grid">
+        <button class="action-btn selected" onclick="selectAction('read_ticket')" id="btn-read_ticket">read_ticket</button>
+        <button class="action-btn" onclick="selectAction('run_diagnostic')" id="btn-run_diagnostic">run_diagnostic</button>
+        <button class="action-btn" onclick="selectAction('search_kb')" id="btn-search_kb">search_kb</button>
+        <button class="action-btn" onclick="selectAction('ask_user')" id="btn-ask_user">ask_user</button>
+        <button class="action-btn" onclick="selectAction('apply_fix')" id="btn-apply_fix">apply_fix</button>
+        <button class="action-btn" onclick="selectAction('restart_service')" id="btn-restart_service">restart_service</button>
+        <button class="action-btn" onclick="selectAction('escalate')" id="btn-escalate">escalate</button>
+        <button class="action-btn" onclick="selectAction('close_ticket')" id="btn-close_ticket">close_ticket</button>
+        <button class="action-btn" onclick="selectAction('add_note')" id="btn-add_note">add_note</button>
+      </div>
+
+      <div id="paramArea"></div>
+
+      <button class="btn-primary" onclick="takeStep()" id="stepBtn" disabled>
+        → Execute Action
+      </button>
+      <button class="btn-secondary" onclick="gradeEpisode()" id="gradeBtn">
+        🏆 Grade Episode
+      </button>
+    </div>
+  </div>
+
+  <!-- CENTER: Log -->
+  <div class="center-panel">
+    <div class="ticket-bar" id="ticketBar">
+      <span class="ticket-id">—</span>
+      <span class="ticket-title">No ticket loaded. Select a task and reset.</span>
+    </div>
+    <div class="log-area" id="logArea">
+      <div class="empty-log">
+        <div class="icon">🎫</div>
+        <div>Select a task and click Reset to begin</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Stats -->
+  <div class="panel stats-panel">
+    <div class="panel-header">📊 Episode Stats</div>
+    <div class="panel-body">
+
+      <div class="stat-card">
+        <div class="stat-label">Cumulative Reward</div>
+        <div class="stat-value blue" id="statReward">—</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div class="stat-card" style="margin-bottom:0">
+          <div class="stat-label">Step</div>
+          <div class="stat-value" id="statStep">—</div>
+        </div>
+        <div class="stat-card" style="margin-bottom:0">
+          <div class="stat-label">Status</div>
+          <div class="stat-value" id="statStatus" style="font-size:12px;color:var(--muted)">—</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Step Rewards</div>
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-label">
+            <span>Progress</span>
+            <span id="progressPct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+          </div>
+        </div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;word-break:break-all;" id="rewardHistory">—</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Milestones</div>
+        <div id="milestoneList">
+          <div style="color:var(--muted);font-size:12px;">Reset to see milestones</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Final Score</div>
+        <div class="score-ring">
+          <div class="score-circle none" id="scoreCircle">—</div>
+        </div>
+        <div style="text-align:center;font-size:12px;color:var(--muted);" id="scoreMsg"></div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let BASE_URL = window.location.origin;
+  let currentTask = '1';
+  let selectedAction = 'read_ticket';
+  let episodeActive = false;
+  let stepCount = 0;
+  let rewardHistory = [];
+  let cumulativeReward = 0;
+
+  const MILESTONES = {
+    '1': [
+      { key:'read',       label:'Read Ticket',        reward:0.10 },
+      { key:'diagnostic', label:'Run Diagnostics',     reward:0.25 },
+      { key:'fix',        label:'Apply Fix',           reward:0.40 },
+      { key:'close',      label:'Close Ticket',        reward:0.25 },
+    ],
+    '2': [
+      { key:'read',       label:'Read Ticket',         reward:0.10 },
+      { key:'kb_search',  label:'Search KB',           reward:0.10 },
+      { key:'diagnostic', label:'Run Diagnostics',     reward:0.25 },
+      { key:'fix',        label:'Restart Service',     reward:0.30 },
+      { key:'note',       label:'Add Note',            reward:0.05 },
+      { key:'close',      label:'Close Ticket',        reward:0.20 },
+    ],
+    '3': [
+      { key:'read',       label:'Read Ticket',         reward:0.05 },
+      { key:'ask_user',   label:'Ask User',            reward:0.10 },
+      { key:'kb_search',  label:'Search KB',           reward:0.10 },
+      { key:'diagnostic', label:'Run Diagnostics (×3)',reward:0.30 },
+      { key:'fix',        label:'Apply Fix',           reward:0.15 },
+      { key:'escalate',   label:'Escalate to L3',      reward:0.15 },
+      { key:'close',      label:'Close Ticket',        reward:0.15 },
+    ],
+  };
+
+  const TICKET_INFO = {
+    '1': { id:'INC-2024-0011', title:'Cannot reach internal websites', sev:'medium' },
+    '2': { id:'INC-2024-0047', title:'Email down for entire Finance team', sev:'high' },
+    '3': { id:'INC-2024-0203', title:'VPN keeps disconnecting for remote users', sev:'critical' },
+  };
+
+  const PARAMS = {
+    read_ticket:     [],
+    run_diagnostic:  [{ id:'tool', label:'Tool Name', placeholder:'ping_dns / nslookup / check_exchange_services / check_vpn_logs / check_firewall_config / test_ike_negotiation / test_smtp_connection' }],
+    search_kb:       [{ id:'query', label:'Search Query', placeholder:'e.g. dns cache flush windows' }],
+    ask_user:        [{ id:'question', label:'Question for User', placeholder:'What are you trying to find out?' }],
+    apply_fix:       [{ id:'fix_id', label:'Fix ID', placeholder:'flush_dns_cache / restart_exchange_transport / revert_firewall_ike_timeout' }],
+    restart_service: [{ id:'service', label:'Service Name', placeholder:'exchange_transport' }],
+    escalate:        [
+      { id:'reason', label:'Reason', placeholder:'Why escalation is needed' },
+      { id:'team',   label:'Target Team', placeholder:'network / security / l3' }
+    ],
+    close_ticket:    [{ id:'resolution_code', label:'Resolution Code', placeholder:'resolved / unresolved / duplicate / wont_fix' }],
+    add_note:        [{ id:'note', label:'Internal Note', placeholder:'What happened and what was done' }],
+    reassign:        [{ id:'queue', label:'Queue', placeholder:'l2 / network / security' }],
+  };
+
+  // Init
+  document.getElementById('baseUrl').addEventListener('change', e => { BASE_URL = e.target.value.trim(); });
+  selectAction('read_ticket');
+  checkServer();
+
+  async function checkServer() {
+    BASE_URL = document.getElementById('baseUrl').value.trim();
+    const dot = document.getElementById('serverDot');
+    const lbl = document.getElementById('serverLabel');
+    dot.className = 'dot';
+    lbl.textContent = 'Checking...';
+    try {
+      const r = await fetch(`${BASE_URL}/health`);
+      if (r.ok) {
+        dot.className = 'dot online';
+        lbl.textContent = 'Server Online';
+      } else throw new Error();
+    } catch {
+      dot.className = 'dot offline';
+      lbl.textContent = 'Server Offline';
+    }
+  }
+
+  function selectTask(id) {
+    currentTask = id;
+    document.querySelectorAll('.task-card').forEach(c => c.classList.remove('active'));
+    document.getElementById(`task-card-${id}`).classList.add('active');
+  }
+
+  function selectAction(name) {
+    selectedAction = name;
+    document.querySelectorAll('.action-btn').forEach(b => b.classList.remove('selected'));
+    const btn = document.getElementById(`btn-${name}`);
+    if (btn) btn.classList.add('selected');
+
+    const area = document.getElementById('paramArea');
+    const fields = PARAMS[name] || [];
+    area.innerHTML = fields.map(f => `
+      <div class="param-group">
+        <label class="param-label">${f.label}</label>
+        <input class="param-input" id="param-${f.id}" placeholder="${f.placeholder}" />
+      </div>
+    `).join('');
+  }
+
+  async function resetEnv() {
+    const btn = document.getElementById('resetBtn');
+    btn.disabled = true;
+    btn.textContent = 'Resetting...';
+
+    try {
+      BASE_URL = document.getElementById('baseUrl').value.trim();
+      const r = await fetch(`${BASE_URL}/reset/${currentTask}`, { method:'POST' });
+      const obs = await r.json();
+
+      episodeActive = true;
+      stepCount = 0;
+      rewardHistory = [];
+      cumulativeReward = 0;
+
+      document.getElementById('stepBtn').disabled = false;
+      updateTicketBar(currentTask);
+      renderMilestones(currentTask, []);
+      updateStats(0, 0, obs.status, []);
+      clearLog();
+      addLog('system', 0, `Environment reset. ${obs.message}`, 0);
+
+      document.getElementById('scoreCircle').className = 'score-circle none';
+      document.getElementById('scoreCircle').textContent = '—';
+      document.getElementById('scoreMsg').textContent = '';
+    } catch(e) {
+      addLog('penalty', 0, `❌ Reset failed: ${e.message}`, 0);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '↺ Reset Environment';
+  }
+
+  async function takeStep() {
+    if (!episodeActive) return;
+
+    const params = {};
+    const fields = PARAMS[selectedAction] || [];
+    fields.forEach(f => {
+      const v = document.getElementById(`param-${f.id}`)?.value?.trim();
+      if (v) params[f.id] = v;
+    });
+
+    const action = { action_type: selectedAction, params };
+    const btn = document.getElementById('stepBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    try {
+      const r = await fetch(`${BASE_URL}/step`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(action)
+      });
+      const obs = await r.json();
+
+      stepCount++;
+      rewardHistory.push(obs.reward);
+      cumulativeReward = obs.cumulative_reward;
+
+      const cls = obs.reward > 0 ? 'reward' : obs.reward < 0 ? 'penalty' : 'action';
+      let msg = `<strong>${selectedAction}(${JSON.stringify(params)})</strong><br>${obs.message}`;
+      if (obs.diagnostic_result) msg += `<br><em>${obs.diagnostic_result.output.substring(0,200)}...</em>`;
+      if (obs.user_reply) msg += `<br>👤 User: ${obs.user_reply}`;
+      if (obs.kb_results?.length) {
+        msg += '<br>📚 ' + obs.kb_results.map(a => `[${a.article_id}] ${a.title}`).join(', ');
+      }
+
+      addLog(cls, stepCount, msg, obs.reward);
+      updateStats(obs.cumulative_reward, stepCount, obs.status, rewardHistory);
+      updateMilestonesFromReward(obs.reward, selectedAction);
+
+      if (obs.done) {
+        episodeActive = false;
+        addLog('system', stepCount, '✅ Episode complete. Click Grade Episode for final score.', 0);
+        btn.disabled = true;
+      }
+    } catch(e) {
+      addLog('penalty', stepCount, `❌ Step error: ${e.message}`, 0);
+    }
+
+    if (episodeActive) {
+      btn.disabled = false;
+      btn.textContent = '→ Execute Action';
+    } else {
+      btn.textContent = '→ Execute Action';
+    }
+  }
+
+  async function gradeEpisode() {
+    try {
+      const r = await fetch(`${BASE_URL}/grade/${currentTask}`);
+      const data = await r.json();
+      const score = data.score;
+
+      const circle = document.getElementById('scoreCircle');
+      circle.textContent = (score * 100).toFixed(0) + '%';
+      circle.className = 'score-circle ' + (score >= 0.8 ? 'good' : score >= 0.5 ? 'medium' : 'poor');
+      document.getElementById('scoreMsg').textContent = data.message;
+
+      addLog('info', stepCount, `🏆 Final grade: ${score.toFixed(4)} — ${data.message}`, score);
+    } catch(e) {
+      addLog('penalty', stepCount, `Grade error: ${e.message}`, 0);
+    }
+  }
+
+  // UI helpers
+  function clearLog() {
+    document.getElementById('logArea').innerHTML = '';
+  }
+
+  function addLog(type, step, msg, reward) {
+    const area = document.getElementById('logArea');
+    const rewardStr = reward !== 0
+      ? `<span class="log-reward ${reward > 0 ? 'pos' : 'neg'}">${reward > 0 ? '+' : ''}${reward.toFixed(3)}</span>`
+      : '';
+    const div = document.createElement('div');
+    div.className = `log-entry ${type}`;
+    div.innerHTML = `
+      <div class="log-step">STEP ${step}</div>
+      <div class="log-msg">${msg}${rewardStr}</div>
+    `;
+    area.appendChild(div);
+    area.scrollTop = area.scrollHeight;
+  }
+
+  function updateTicketBar(taskId) {
+    const t = TICKET_INFO[taskId];
+    document.getElementById('ticketBar').innerHTML = `
+      <span class="ticket-id">${t.id}</span>
+      <span class="ticket-title">${t.title}</span>
+      <span class="severity-badge sev-${t.sev}">${t.sev.toUpperCase()}</span>
+    `;
+  }
+
+  function updateStats(cum, step, status, rewards) {
+    document.getElementById('statReward').textContent = cum.toFixed(3);
+    document.getElementById('statStep').textContent = step;
+    document.getElementById('statStatus').textContent = status || '—';
+    document.getElementById('statStatus').style.color = status === 'closed' ? 'var(--green)' : 'var(--accent2)';
+
+    const pct = Math.round(cum * 100);
+    document.getElementById('progressPct').textContent = pct + '%';
+    document.getElementById('progressFill').style.width = pct + '%';
+
+    if (rewards.length > 0) {
+      document.getElementById('rewardHistory').textContent =
+        rewards.map(r => (r >= 0 ? '+' : '') + r.toFixed(2)).join(' ');
+    }
+  }
+
+  function renderMilestones(taskId, earned) {
+    const ms = MILESTONES[taskId] || [];
+    document.getElementById('milestoneList').innerHTML = ms.map(m => `
+      <div class="milestone">
+        <div class="ms-dot ${earned.includes(m.key) ? 'done' : ''}"></div>
+        <span class="ms-name ${earned.includes(m.key) ? 'done' : ''}">${m.label}</span>
+        <span class="ms-reward">+${m.reward.toFixed(2)}</span>
+      </div>
+    `).join('');
+  }
+
+  // Approximate milestone tracking from rewards
+  const earnedMilestones = [];
+  function updateMilestonesFromReward(reward, action) {
+    if (reward > 0) {
+      if (action === 'read_ticket') earnedMilestones.push('read');
+      if (action === 'run_diagnostic') earnedMilestones.push('diagnostic');
+      if (action === 'search_kb') earnedMilestones.push('kb_search');
+      if (action === 'ask_user') earnedMilestones.push('ask_user');
+      if (action === 'apply_fix' || action === 'restart_service') earnedMilestones.push('fix');
+      if (action === 'escalate') earnedMilestones.push('escalate');
+      if (action === 'add_note') earnedMilestones.push('note');
+      if (action === 'close_ticket') earnedMilestones.push('close');
+    }
+    renderMilestones(currentTask, earnedMilestones);
+  }
+
+  // Auto check server every 30s
+  setInterval(checkServer, 30000);
+</script>
+</body>
+</html>

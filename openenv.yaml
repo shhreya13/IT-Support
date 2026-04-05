@@ -1,0 +1,64 @@
+spec_version: 1
+name: ITSupportTicketManagement
+description: >
+  An OpenEnv benchmark environment where an AI agent acts as an IT support
+  engineer. The agent must triage tickets, run diagnostics, apply fixes,
+  escalate when warranted, and close tickets across three difficulty levels
+  (DNS failure / email outage / VPN drops). Rewards are partial and shaped
+  to guide multi-step reasoning.
+runtime: python
+app: server:app
+port: 7860
+
+tasks:
+  - id: "1"
+    name: DNS Resolution Failure – Workstation
+    difficulty: easy
+    max_steps: 8
+    description: >
+      A single workstation cannot resolve internal DNS. The agent must read the
+      ticket, run ping_dns + nslookup diagnostics, apply the flush_dns_cache fix,
+      and close the ticket. Escalation is NOT required.
+
+  - id: "2"
+    name: Email Service Outage – Finance Department
+    difficulty: medium
+    max_steps: 12
+    description: >
+      The MSExchangeTransport service has stopped, cutting email for an entire
+      department. The agent must search the KB, run two diagnostics, restart the
+      transport service, add an internal note, and close resolved.
+
+  - id: "3"
+    name: Intermittent VPN Drops – Remote Workforce
+    difficulty: hard
+    max_steps: 18
+    description: >
+      A firewall firmware upgrade misconfigured IKE SA lifetime and DPD settings,
+      causing periodic VPN tunnel drops for ~40 remote workers. The agent must ask
+      the user for details, search the KB, run three diagnostics, apply the
+      revert_firewall_ike_timeout fix, escalate to the network team, and close.
+
+reward:
+  type: continuous
+  range: [0.0, 1.0]
+  partial_credit: true
+  penalises:
+    - destructive_actions
+    - redundant_actions
+    - premature_closure
+    - unnecessary_escalation
+
+environment:
+  python_version: "3.11"
+  dependencies:
+    - fastapi>=0.110.0
+    - uvicorn>=0.29.0
+    - pydantic>=2.0.0
+    - openai>=1.30.0
+    - httpx>=0.27.0
+
+metadata:
+  author: openenv-hackathon
+  domain: IT Operations
+  tags: [itsm, helpdesk, triage, llm-agent, reward-shaping]
