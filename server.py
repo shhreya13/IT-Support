@@ -67,7 +67,6 @@ class TaskGraderInfo(BaseModel):
 
 
 class TaskInfo(BaseModel):
-    # OpenEnv validators typically look for `id`; keep `task_id` too for compatibility.
     id: str
     task_id: str
     name: str
@@ -110,7 +109,12 @@ async def metadata() -> dict:
             "name": "DNS Resolution Failure – Workstation",
             "difficulty": "easy",
             "max_steps": 8,
-            "grader": {"type": "programmatic", "endpoint": "/grade/1", "score_range": [0.0, 1.0]},
+            "description": "Diagnose DNS failure on a single workstation, apply flush_dns_cache, and close without escalation.",
+            "grader": {
+                "type": "programmatic",
+                "endpoint": "/grade/1",
+                "score_range": [0.0, 1.0]
+            }
         },
         {
             "id": "2",
@@ -118,7 +122,12 @@ async def metadata() -> dict:
             "name": "Email Service Outage – Finance Department",
             "difficulty": "medium",
             "max_steps": 12,
-            "grader": {"type": "programmatic", "endpoint": "/grade/2", "score_range": [0.0, 1.0]},
+            "description": "Diagnose Exchange transport outage, restart service, add note, and close without escalation.",
+            "grader": {
+                "type": "programmatic",
+                "endpoint": "/grade/2",
+                "score_range": [0.0, 1.0]
+            }
         },
         {
             "id": "3",
@@ -126,9 +135,15 @@ async def metadata() -> dict:
             "name": "Intermittent VPN Drops – Remote Workforce",
             "difficulty": "hard",
             "max_steps": 18,
-            "grader": {"type": "programmatic", "endpoint": "/grade/3", "score_range": [0.0, 1.0]},
-        },
+            "description": "Diagnose VPN tunnel drops, fix firewall timeout issue, escalate to network team, and close.",
+            "grader": {
+                "type": "programmatic",
+                "endpoint": "/grade/3",
+                "score_range": [0.0, 1.0]
+            }
+        }
     ]
+
     return {
         "name": "ITSupportTicketManagement",
         "description": (
@@ -227,6 +242,7 @@ async def reset_default() -> Observation:
 @app.post("/reset/{task_id}", response_model=Observation)
 async def reset(task_id: str) -> Observation:
     try:
+        task_id = task_id.strip()
         return env.reset(task_id)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -251,6 +267,7 @@ async def state() -> State:
 @app.get("/grade/{task_id}", response_model=GradeResponse)
 async def grade(task_id: str) -> GradeResponse:
     try:
+        task_id = task_id.strip()
         score = env.grader(task_id)
         return GradeResponse(
             task_id=task_id,
@@ -267,7 +284,6 @@ async def grade(task_id: str) -> GradeResponse:
         )
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
 
 
 if __name__ == "__main__":
