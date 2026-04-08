@@ -275,6 +275,7 @@ class ITSupportEnv:
         self._milestone_earned: dict[str, bool] = {}
         self._step_rewards: list[float] = []
         self._penalty_count: int = 0
+        self._current_task_id: Optional[str] = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -288,6 +289,7 @@ class ITSupportEnv:
 
         scenario = copy.deepcopy(_SCENARIOS[key])
         self._scenario = scenario
+        self._current_task_id = key
         self._milestone_earned = {m: False for m in scenario["milestones"]}
         self._step_rewards = []
         self._penalty_count = 0
@@ -327,7 +329,7 @@ class ITSupportEnv:
             cumulative_reward=0.0,
             done=False,
         )
-
+        
     def step(self, action: Action) -> Observation:
         """Process one agent action and return the resulting observation."""
         if self._state is None:
@@ -434,39 +436,29 @@ class ITSupportEnv:
         return self._state
 
     def grader(self, task_id: str) -> float:
-        """
-        Final holistic grader.  Returns a score in [0, 1].
-
-        Evaluates:
-          1. Milestone completion ratio
-          2. Penalty count (too many wrong actions reduces score)
-          3. Correct resolution code
-          4. Whether escalation was correctly done (or correctly avoided)
-        """
         if self._state is None:
+            return 0.0
+
+        # Ensure grading matches correct task
+        expected = f"task_{task_id}" if not task_id.startswith("task_") else task_id
+        if self._current_task_id != expected:
             return 0.0
 
         s = self._state
         scenario = self._scenario
 
-        # 1. Milestone score
         milestones = scenario["milestones"]
         earned = sum(
             weight
             for m, weight in milestones.items()
             if self._milestone_earned.get(m, False)
         )
-        milestone_score = earned  # already sums to ≤ 1.0
+        milestone_score = earned
 
-        # 2. Penalty factor (each bad action shaves a bit)
         penalty_factor = max(0.0, 1.0 - self._penalty_count * 0.05)
 
-        # 3. Resolution code correctness
-        resolution_bonus = 0.0
-        if s.resolution_code == ResolutionCode.RESOLVED:
-            resolution_bonus = 0.05
+        resolution_bonus = 0.05 if s.resolution_code == ResolutionCode.RESOLVED else 0.0
 
-        # 4. Escalation correctness
         escalation_bonus = 0.0
         should_escalate = scenario.get("correct_escalation", False)
         if should_escalate and s.escalated:
@@ -695,6 +687,7 @@ class ITSupportEnv:
             f"Ticket reassigned to queue '{queue}'. "
             "Consider escalating with a reason instead."
         )
+    
 
     # ------------------------------------------------------------------
     # Helpers

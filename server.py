@@ -17,7 +17,6 @@ GET  /schema            → action, observation, state JSON schemas
 POST /mcp               → JSON-RPC endpoint for MCP compliance
 """
 
-import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -61,11 +60,19 @@ class GradeResponse(BaseModel):
     message: str
 
 
+class TaskGraderInfo(BaseModel):
+    type: str
+    endpoint: str
+    score_range: list[float]
+
+
 class TaskInfo(BaseModel):
     task_id: str
     name: str
     difficulty: str
     max_steps: int
+    description: str
+    grader: TaskGraderInfo
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +85,9 @@ async def dashboard():
     html_path = Path(__file__).parent / "static_frontend.html"
     if html_path.exists():
         return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
-    return HTMLResponse(content="<h2>Dashboard not found. Place static_frontend.html next to server.py</h2>")
+    return HTMLResponse(
+        content="<h2>Dashboard not found. Place static_frontend.html next to server.py</h2>"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -136,9 +145,42 @@ async def mcp_endpoint(request: Request) -> dict:
 @app.get("/tasks", response_model=list[TaskInfo])
 async def list_tasks() -> list[TaskInfo]:
     return [
-        TaskInfo(task_id="1", name="DNS Resolution Failure – Workstation",      difficulty="easy",   max_steps=8),
-        TaskInfo(task_id="2", name="Email Service Outage – Finance Department",  difficulty="medium", max_steps=12),
-        TaskInfo(task_id="3", name="Intermittent VPN Drops – Remote Workforce",  difficulty="hard",   max_steps=18),
+        TaskInfo(
+            task_id="1",
+            name="DNS Resolution Failure – Workstation",
+            difficulty="easy",
+            max_steps=8,
+            description="Diagnose DNS failure on a single workstation, apply flush_dns_cache, and close without escalation.",
+            grader=TaskGraderInfo(
+                type="programmatic",
+                endpoint="/grade/1",
+                score_range=[0.0, 1.0],
+            ),
+        ),
+        TaskInfo(
+            task_id="2",
+            name="Email Service Outage – Finance Department",
+            difficulty="medium",
+            max_steps=12,
+            description="Diagnose Exchange transport outage, restart service, add note, and close without escalation.",
+            grader=TaskGraderInfo(
+                type="programmatic",
+                endpoint="/grade/2",
+                score_range=[0.0, 1.0],
+            ),
+        ),
+        TaskInfo(
+            task_id="3",
+            name="Intermittent VPN Drops – Remote Workforce",
+            difficulty="hard",
+            max_steps=18,
+            description="Diagnose VPN tunnel drops, fix firewall timeout issue, escalate to network team, and close.",
+            grader=TaskGraderInfo(
+                type="programmatic",
+                endpoint="/grade/3",
+                score_range=[0.0, 1.0],
+            ),
+        ),
     ]
 
 
@@ -183,10 +225,13 @@ async def grade(task_id: str) -> GradeResponse:
             task_id=task_id,
             score=score,
             message=(
-                "Excellent — full resolution achieved!"  if score >= 0.9 else
-                "Good — most milestones completed."      if score >= 0.7 else
-                "Partial — some milestones incomplete."  if score >= 0.4 else
-                "Poor — significant steps were missed."
+                "Excellent — full resolution achieved!"
+                if score >= 0.9
+                else "Good — most milestones completed."
+                if score >= 0.7
+                else "Partial — some milestones incomplete."
+                if score >= 0.4
+                else "Poor — significant steps were missed."
             ),
         )
     except RuntimeError as e:

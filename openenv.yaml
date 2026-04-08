@@ -19,6 +19,10 @@ tasks:
       A single workstation cannot resolve internal DNS. The agent must read the
       ticket, run ping_dns + nslookup diagnostics, apply the flush_dns_cache fix,
       and close the ticket. Escalation is NOT required.
+    grader:
+      type: programmatic
+      endpoint: /grade/1
+      score_range: [0.0, 1.0]
 
   - id: "2"
     name: Email Service Outage – Finance Department
@@ -28,6 +32,10 @@ tasks:
       The MSExchangeTransport service has stopped, cutting email for an entire
       department. The agent must search the KB, run two diagnostics, restart the
       transport service, add an internal note, and close resolved.
+    grader:
+      type: programmatic
+      endpoint: /grade/2
+      score_range: [0.0, 1.0]
 
   - id: "3"
     name: Intermittent VPN Drops – Remote Workforce
@@ -38,6 +46,15 @@ tasks:
       causing periodic VPN tunnel drops for ~40 remote workers. The agent must ask
       the user for details, search the KB, run three diagnostics, apply the
       revert_firewall_ike_timeout fix, escalate to the network team, and close.
+    grader:
+      type: programmatic
+      endpoint: /grade/3
+      score_range: [0.0, 1.0]
+
+grading:
+  type: programmatic
+  score_range: [0.0, 1.0]
+  passing_threshold: 0.6
 
 reward:
   type: continuous
