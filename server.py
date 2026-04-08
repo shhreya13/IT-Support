@@ -67,6 +67,8 @@ class TaskGraderInfo(BaseModel):
 
 
 class TaskInfo(BaseModel):
+    # OpenEnv validators typically look for `id`; keep `task_id` too for compatibility.
+    id: str
     task_id: str
     name: str
     difficulty: str
@@ -101,6 +103,32 @@ async def health() -> dict:
 
 @app.get("/metadata")
 async def metadata() -> dict:
+    tasks = [
+        {
+            "id": "1",
+            "task_id": "1",
+            "name": "DNS Resolution Failure – Workstation",
+            "difficulty": "easy",
+            "max_steps": 8,
+            "grader": {"type": "programmatic", "endpoint": "/grade/1", "score_range": [0.0, 1.0]},
+        },
+        {
+            "id": "2",
+            "task_id": "2",
+            "name": "Email Service Outage – Finance Department",
+            "difficulty": "medium",
+            "max_steps": 12,
+            "grader": {"type": "programmatic", "endpoint": "/grade/2", "score_range": [0.0, 1.0]},
+        },
+        {
+            "id": "3",
+            "task_id": "3",
+            "name": "Intermittent VPN Drops – Remote Workforce",
+            "difficulty": "hard",
+            "max_steps": 18,
+            "grader": {"type": "programmatic", "endpoint": "/grade/3", "score_range": [0.0, 1.0]},
+        },
+    ]
     return {
         "name": "ITSupportTicketManagement",
         "description": (
@@ -111,7 +139,7 @@ async def metadata() -> dict:
             "to guide multi-step reasoning."
         ),
         "version": "1.0.0",
-        "tasks": ["1", "2", "3"],
+        "tasks": tasks,
     }
 
 
@@ -146,6 +174,7 @@ async def mcp_endpoint(request: Request) -> dict:
 async def list_tasks() -> list[TaskInfo]:
     return [
         TaskInfo(
+            id="1",
             task_id="1",
             name="DNS Resolution Failure – Workstation",
             difficulty="easy",
@@ -158,6 +187,7 @@ async def list_tasks() -> list[TaskInfo]:
             ),
         ),
         TaskInfo(
+            id="2",
             task_id="2",
             name="Email Service Outage – Finance Department",
             difficulty="medium",
@@ -170,6 +200,7 @@ async def list_tasks() -> list[TaskInfo]:
             ),
         ),
         TaskInfo(
+            id="3",
             task_id="3",
             name="Intermittent VPN Drops – Remote Workforce",
             difficulty="hard",
@@ -236,3 +267,9 @@ async def grade(task_id: str) -> GradeResponse:
         )
     except RuntimeError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
